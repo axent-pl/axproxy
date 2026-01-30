@@ -16,7 +16,9 @@ type Module interface {
 
 	Name() string
 
-	RegisterSpecialRoutes(mux *http.ServeMux)
+	Middleware(next http.HandlerFunc) http.HandlerFunc
+
+	SpecialRoutes() map[string]http.HandlerFunc
 
 	ProxyMiddleware(ProxyHandlerFunc) ProxyHandlerFunc
 
@@ -27,7 +29,8 @@ type Module interface {
 
 type NoopModule struct{}
 
-func (NoopModule) RegisterSpecialRoutes(*http.ServeMux)              {}
+func (NoopModule) SpecialRoutes() map[string]http.HandlerFunc        { return nil }
+func (NoopModule) Middleware(next http.HandlerFunc) http.HandlerFunc { return nil }
 func (NoopModule) ProxyMiddleware(ProxyHandlerFunc) ProxyHandlerFunc { return nil }
 func (NoopModule) ProxyDirectorMiddleware(ProxyDirectorHandlerFunc) ProxyDirectorHandlerFunc {
 	return nil

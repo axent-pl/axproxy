@@ -43,6 +43,25 @@ func (m *SessionModule) Name() string {
 	return m.Metadata.Name
 }
 
+func (m *SessionModule) Middleware(next http.HandlerFunc) http.HandlerFunc {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		st := state.GetState(r.Context())
+		if r == nil || st == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+		sess, isNew := m.getOrCreateSession(r)
+		st.Session = sess
+		if isNew {
+			http.SetCookie(w, m.buildCookie(r, sess))
+		}
+
+		next.ServeHTTP(w, r)
+
+		m.saveSession(sess)
+	})
+}
+
 func (m *SessionModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.ProxyHandlerFunc {
 	return module.ProxyHandlerFunc(func(w http.ResponseWriter, r *http.Request, st *state.State) {
 		if r == nil || st == nil {

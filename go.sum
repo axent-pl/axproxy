@@ -1,3 +1,7 @@
+github.com/axent-pl/credentials v0.0.0-20260130194754-bb83a5a989b6 h1:lul0FvnxGZ9dZ24dpnY4sSBfhmX4xIh9Yo3L9xU0Ee0=
+github.com/axent-pl/credentials v0.0.0-20260130194754-bb83a5a989b6/go.mod h1:TEVtPK0y2sQj1JiRxnnhO6Qe0yd6BHJ3FzkEkvWiQso=
+github.com/golang-jwt/jwt/v5 v5.3.1 h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=
+github.com/golang-jwt/jwt/v5 v5.3.1/go.mod h1:fxCRLWMO43lRc8nhHWY6LGqRcf+1gQWArsqaEUEa5bE=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=

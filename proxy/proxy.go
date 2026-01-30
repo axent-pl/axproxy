@@ -47,8 +47,37 @@ func (p *AuthProxy) ListenAndServe() error {
 		return err
 	}
 
+	// --------------------
+	// Special Routes
+	// --------------------
+	specialRoutes := make(map[string]http.HandlerFunc)
+	for i := len(p.Chain) - 1; i >= 0; i-- {
+		step := p.Chain[i]
+		if moduleSpecialRoutes := step.module.SpecialRoutes(); moduleSpecialRoutes != nil {
+			for r, h := range moduleSpecialRoutes {
+				specialRoutes[r] = h
+			}
+		}
+	}
+	for i := len(p.Chain) - 1; i >= 0; i-- {
+		step := p.Chain[i]
+		for r, h := range specialRoutes {
+			if wrapped := step.module.Middleware(h); wrapped != nil {
+				specialRoutes[r] = step.module.Middleware(h)
+			}
+		}
+	}
+	for r, h := range specialRoutes {
+		p.specialMux.HandleFunc(r, func(w http.ResponseWriter, r *http.Request) {
+			st := s.NewState()
+			r = r.WithContext(s.WithState(r.Context(), st))
+			h.ServeHTTP(w, r)
+		})
+	}
+
 	proxy := httputil.ReverseProxy{}
 
+	// --------------------
 	// Director
 	// --------------------
 	directorHandler := module.ProxyDirectorHandlerFunc(func(r *http.Request, st *s.State) {
@@ -67,6 +96,7 @@ func (p *AuthProxy) ListenAndServe() error {
 	}
 	// --------------------
 
+	// --------------------
 	// ModifyResponse
 	// --------------------
 	modifyResponseHandler := module.ProxyModifyResponseHandlerFunc(func(*http.Response, *s.State) error {
@@ -156,7 +186,6 @@ func (p *AuthProxy) initModules() error {
 		if err != nil {
 			return err
 		}
-		mod.RegisterSpecialRoutes(p.specialMux)
 		p.Chain[idx].module = mod
 	}
 	return nil
