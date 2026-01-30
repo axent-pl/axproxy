@@ -1,0 +1,9 @@
+modules/authoidc.go:117:37: Error return value of `tokenHTTPResponse.Body.Close` is not checked (errcheck)
+		defer tokenHTTPResponse.Body.Close()
+		                                  ^
+modules/authoidc.go:74:26: func (*AuthOIDCModule).getCallbackHandler is unused (unused)
+func (m *AuthOIDCModule) getCallbackHandler() http.Handler {
+                         ^
+2 issues:
+* errcheck: 1
+* unused: 1

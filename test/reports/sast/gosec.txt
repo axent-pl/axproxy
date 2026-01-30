@@ -1,0 +1,52 @@
+Results:
+
+Golang errors in file: [.]:
+
+  > [line 0 : column 0] - loading files from package ".": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
+Golang errors in file: [manifest]:
+
+  > [line 0 : column 0] - loading files from package "manifest": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
+Golang errors in file: [module]:
+
+  > [line 0 : column 0] - loading files from package "module": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
+Golang errors in file: [modules]:
+
+  > [line 0 : column 0] - loading files from package "modules": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
+Golang errors in file: [proxy]:
+
+  > [line 0 : column 0] - loading files from package "proxy": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
+Golang errors in file: [state]:
+
+  > [line 0 : column 0] - loading files from package "state": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
+Golang errors in file: [utils]:
+
+  > [line 0 : column 0] - loading files from package "utils": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
+
+Summary:
+  Gosec  : dev
+  Files  : 0
+  Lines  : 0
+  Nosec  : 0
+  Issues : 0
+
