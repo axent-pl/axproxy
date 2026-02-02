@@ -1,0 +1,174 @@
+{
+    "interfaces": {
+        "authorization": {
+            "enabled": true,
+            "provider": "default",
+            "endpoint": "/authorize",
+            "responseTypes": [
+                "code"
+            ]
+        },
+        "token": {
+            "enabled": true,
+            "provider": "default",
+            "endpoint": "/token",
+            "grantTypes": [
+                "authorization_code",
+                "client_credentials",
+                "password"
+            ]
+        }
+    },
+    "signing": {
+        "keys": [
+            {
+                "provider": {
+                    "fromPEM": {
+                        "path": "assets/key/key.rsa256.pem"
+                    }
+                },
+                "method": "RS256",
+                "active": true
+            }
+        ]
+    },
+    "users": {
+        "provider": "json",
+        "users": {
+            "demo": {
+                "username": "demo",
+                "password": "demo",
+                "claims": {
+                    "default": {
+                        "base": {
+                            "preferred_username": "John.Demo@acme.com",
+                            "realm_roles": [
+                                "DEMO"
+                            ]
+                        },
+                        "scopeOverrides": {
+                            "email": {
+                                "email": "John.Demo@acme.com"
+                            },
+                            "products::read": {
+                                "products": [
+                                    "A",
+                                    "B"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "consents": {
+                    "openid": true,
+                    "profile": true,
+                    "email": true,
+                    "products::read": false
+                }
+            },
+            "admin": {
+                "username": "admin",
+                "password": "admin",
+                "claims": {
+                    "default": {
+                        "base": {
+                            "preferred_username": "John.Demo@acme.com",
+                            "realm_roles": [
+                                "ADMIN"
+                            ]
+                        },
+                        "clientOverrides": {
+                            "ACME": {
+                                "client_roles": [
+                                    "DEMO",
+                                    "ADMIN"
+                                ]
+                            }
+                        },
+                        "scopeOverrides": {
+                            "email": {
+                                "email": "John.Demo@acme.com"
+                            },
+                            "products::read": {
+                                "products": [
+                                    "A",
+                                    "B",
+                                    "C"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "consents": {
+                    "profile": true,
+                    "email": true,
+                    "products::read": true
+                }
+            }
+        }
+    },
+    "claims": {
+        "provider": "json"
+    },
+    "clients": {
+        "ACME": {
+            "client_id": "ACME",
+            "client_secret": "acme-secret",
+            "redirect_uri": "http*",
+            "claims": {
+                "default": {
+                    "azp": "ACME",
+                    "base": {
+                        "realm_roles": [
+                            "ADMIN"
+                        ]
+                    }
+                }
+            }
+        },
+        "ACME2": {
+            "client_id": "ACME2",
+            "client_secret": "secret-acme-pass",
+            "redirect_uri": "http*",
+            "claims": {
+                "default": {
+                    "azp": "ACME2"
+                }
+            }
+        }
+    },
+    "consents": {
+        "provider": "json",
+        "scopes": {
+            "saml": {
+                "requireConsent": false
+            },
+            "openid": {
+                "requireConsent": false
+            },
+            "profile": {
+                "requireConsent": false
+            },
+            "email": {
+                "requireConsent": true
+            },
+            "products::read": {
+                "requireConsent": true
+            },
+            "avatar": {
+                "requireConsent": false
+            }
+        }
+    },
+    "authorization": {
+        "provider": "memory",
+        "authorizationCodeLength": 16,
+        "authorizationRequestTTLSeconds": 60
+    },
+    "session": {
+        "provider": "memory",
+        "config": {
+            "ttlSeconds": 60
+        }
+    }
+}

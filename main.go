@@ -22,7 +22,7 @@ func init() {
 }
 
 func main() {
-	data, err := os.ReadFile("assets/config.yaml")
+	data, err := os.ReadFile("assets/config/config.yaml")
 	if err != nil {
 		slog.Error("proxy reading configuration failed ", "error", err)
 		os.Exit(1)

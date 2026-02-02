@@ -3,6 +3,15 @@
 ┌─────────────────┐
 │ 5 Code Findings │
 └─────────────────┘
+                                    
+    assets/servercerts/localhost.key
+   ❯❯❱ generic.secrets.security.detected-private-key.detected-private-key
+          Private Key detected. This is a sensitive credential and should not be hardcoded here. Instead,
+          store this in a separate, private file.                                                        
+          Details: https://sg.run/b7dr                                                                   
+                                                                                                         
+            1┆ -----BEGIN PRIVATE KEY-----
+            2┆ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCVls51lt04GdUd
                        
     modules/authoidc.go
     ❯❱ go.lang.security.injection.open-redirect.open-redirect
@@ -60,16 +69,8 @@
           ReverseProxy.Director.                                                                           
           Details: https://sg.run/9AYYR                                                                    
                                                                                                            
-           71┆ proxy.Director = func(r *http.Request) {
-           72┆    st := s.GetState(r.Context())
-           73┆    directorHandler(r, st)
-           74┆ }
-   
-    ❯❱ go.lang.security.audit.net.use-tls.use-tls
-          Found an HTTP server without TLS. Use 'http.ListenAndServeTLS' instead. See
-          https://golang.org/pkg/net/http/#ListenAndServeTLS for more information.   
-          Details: https://sg.run/dKbY                                               
-                                                                                     
-           ▶▶┆ Autofix ▶ http.ListenAndServeTLS(p.Address, certFile, keyFile, rootMux)
-          122┆ return http.ListenAndServe(p.Address, rootMux)
+           73┆ proxy.Director = func(r *http.Request) {
+           74┆    st := s.GetState(r.Context())
+           75┆    directorHandler(r, st)
+           76┆ }
 

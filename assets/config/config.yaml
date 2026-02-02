@@ -6,7 +6,7 @@ spec:
   listen: ":8787"
   special_prefix: "/_"
   upstreams:
-    - source: http://localhost:8787
+    - source: https://localhost:8787
       target: https://pl.wikipedia.org
   chain:
   - moduleRef:
@@ -15,6 +15,9 @@ spec:
   - moduleRef:
       kind: Session
       name: session
+  - moduleRef:
+      kind: AuthOIDC
+      name: axes
   - moduleRef:
       kind: Rewriter
       name: url
@@ -33,7 +36,7 @@ spec:
   listen: ":8989"
   special_prefix: "/_"
   upstreams:
-    - source: http://localhost:8989
+    - source: https://localhost:8989
       target: https://docs.python.org
   chain:
   - moduleRef:
@@ -42,6 +45,9 @@ spec:
   - moduleRef:
       kind: Session
       name: session
+  - moduleRef:
+      kind: AuthOIDC
+      name: axes
   - moduleRef:
       kind: Rewriter
       name: url
@@ -89,7 +95,19 @@ metadata:
   name: url
 spec:
   rewrite:
-    "https://pl.wikipedia.org": "http://localhost:8787"
-    "https://docs.python.org": "http://localhost:8989"
+    "https://pl.wikipedia.org": "https://localhost:8787"
+    "https://docs.python.org": "https://localhost:8989"
   headers: true
   body: true
+---
+apiVersion: v1
+kind: AuthOIDC
+metadata:
+  name: axes
+spec:
+  scope: openid email profile
+  client_id: ACME
+  client_secret: acme-secret
+  jwks_url: http://localhost:8080/.well-known/jwks.json
+  authorize_url: http://localhost:8080/authorize
+  token_url: http://localhost:8080/token

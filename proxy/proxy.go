@@ -17,6 +17,8 @@ type AuthProxy struct {
 	Metadata    manifest.ObjectMeta `yaml:"metadata"`
 	Address     string              `yaml:"listen"`
 	Prefix      string              `yaml:"special_prefix"`
+	TLSCertFile string              `yaml:"tls_crt_file"`
+	TLSKeyFile  string              `yaml:"tls_key_file"`
 	Upstreams   []Upstream          `yaml:"upstreams"`
 	upstreamMap map[string]*url.URL `yaml:"-"`
 	Chain       []Step              `yaml:"chain"`
@@ -119,7 +121,15 @@ func (p *AuthProxy) ListenAndServe() error {
 		handler(w, r, st)
 	})
 
-	return http.ListenAndServe(p.Address, rootMux)
+	certFile := p.TLSCertFile
+	if certFile == "" {
+		certFile = "assets/servercerts/localhost.crt"
+	}
+	keyFile := p.TLSKeyFile
+	if keyFile == "" {
+		keyFile = "assets/servercerts/localhost.key"
+	}
+	return http.ListenAndServeTLS(p.Address, certFile, keyFile, rootMux)
 }
 
 func (p *AuthProxy) registerSpecialRoutes() error {
