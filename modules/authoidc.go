@@ -157,7 +157,12 @@ func (m *AuthOIDCModule) getCallbackHandler() http.HandlerFunc {
 			http.Error(w, "could not request token", http.StatusUnauthorized)
 			return
 		}
-		defer tokenHTTPResponse.Body.Close()
+		defer func() {
+			err := tokenHTTPResponse.Body.Close()
+			if err != nil {
+				slog.Error("could not close OIDC token response body", "error", err)
+			}
+		}()
 		if tokenHTTPResponse.StatusCode != http.StatusOK {
 			slog.Error(fmt.Sprintf("could not request token: status %s", tokenHTTPResponse.Status))
 			http.Error(w, "could not request token", http.StatusUnauthorized)

@@ -13,7 +13,7 @@
           to domains in an allowlist.                                                                         
           Details: https://sg.run/2ZW45                                                                       
                                                                                                               
-          151┆ http.Redirect(w, r, entrypoint, http.StatusFound)
+          202┆ http.Redirect(w, r, entrypoint, http.StatusFound)
                       
     modules/session.go
     ❯❱ go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly
@@ -25,15 +25,15 @@
            ▶▶┆ Autofix ▶ http.Cookie{ Name:     m.cookieName(), Value:    sess.ID, Path:     m.cookiePath(), Domain:
               m.CookieDomain, HttpOnly: m.cookieHTTPOnly(), Secure:   m.cookieSecure(r),                            
               SameSite: m.cookieSameSite(), }                                                                       
-          118┆ cookie := &http.Cookie{
-          119┆    Name:     m.cookieName(),
-          120┆    Value:    sess.ID,
-          121┆    Path:     m.cookiePath(),
-          122┆    Domain:   m.CookieDomain,
-          123┆    HttpOnly: m.cookieHTTPOnly(),
-          124┆    Secure:   m.cookieSecure(r),
-          125┆    SameSite: m.cookieSameSite(),
-          126┆ }
+          137┆ cookie := &http.Cookie{
+          138┆    Name:     m.cookieName(),
+          139┆    Value:    sess.ID,
+          140┆    Path:     m.cookiePath(),
+          141┆    Domain:   m.CookieDomain,
+          142┆    HttpOnly: m.cookieHTTPOnly(),
+          143┆    Secure:   m.cookieSecure(r),
+          144┆    SameSite: m.cookieSameSite(),
+          145┆ }
    
     ❯❱ go.lang.security.audit.net.cookie-missing-secure.cookie-missing-secure
           A session cookie was detected without setting the 'Secure' flag. The 'secure' flag for cookies
@@ -44,15 +44,15 @@
            ▶▶┆ Autofix ▶ http.Cookie{ Name:     m.cookieName(), Value:    sess.ID, Path:     m.cookiePath(), Domain:
               m.CookieDomain, HttpOnly: m.cookieHTTPOnly(), Secure:   m.cookieSecure(r),                            
               SameSite: m.cookieSameSite(), }                                                                       
-          118┆ cookie := &http.Cookie{
-          119┆    Name:     m.cookieName(),
-          120┆    Value:    sess.ID,
-          121┆    Path:     m.cookiePath(),
-          122┆    Domain:   m.CookieDomain,
-          123┆    HttpOnly: m.cookieHTTPOnly(),
-          124┆    Secure:   m.cookieSecure(r),
-          125┆    SameSite: m.cookieSameSite(),
-          126┆ }
+          137┆ cookie := &http.Cookie{
+          138┆    Name:     m.cookieName(),
+          139┆    Value:    sess.ID,
+          140┆    Path:     m.cookiePath(),
+          141┆    Domain:   m.CookieDomain,
+          142┆    HttpOnly: m.cookieHTTPOnly(),
+          143┆    Secure:   m.cookieSecure(r),
+          144┆    SameSite: m.cookieSameSite(),
+          145┆ }
                   
     proxy/proxy.go
     ❯❱ go.lang.security.reverseproxy-director.reverseproxy-director
@@ -60,10 +60,10 @@
           ReverseProxy.Director.                                                                           
           Details: https://sg.run/9AYYR                                                                    
                                                                                                            
-           64┆ proxy.Director = func(r *http.Request) {
-           65┆    st := s.GetState(r.Context())
-           66┆    directorHandler(r, st)
-           67┆ }
+           71┆ proxy.Director = func(r *http.Request) {
+           72┆    st := s.GetState(r.Context())
+           73┆    directorHandler(r, st)
+           74┆ }
    
     ❯❱ go.lang.security.audit.net.use-tls.use-tls
           Found an HTTP server without TLS. Use 'http.ListenAndServeTLS' instead. See
@@ -71,5 +71,5 @@
           Details: https://sg.run/dKbY                                               
                                                                                      
            ▶▶┆ Autofix ▶ http.ListenAndServeTLS(p.Address, certFile, keyFile, rootMux)
-          114┆ return http.ListenAndServe(p.Address, rootMux)
+          122┆ return http.ListenAndServe(p.Address, rootMux)
 
