@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -47,32 +48,8 @@ func (p *AuthProxy) ListenAndServe() error {
 		return err
 	}
 
-	// --------------------
-	// Special Routes
-	// --------------------
-	specialRoutes := make(map[string]http.HandlerFunc)
-	for i := len(p.Chain) - 1; i >= 0; i-- {
-		step := p.Chain[i]
-		if moduleSpecialRoutes := step.module.SpecialRoutes(); moduleSpecialRoutes != nil {
-			for r, h := range moduleSpecialRoutes {
-				specialRoutes[r] = h
-			}
-		}
-	}
-	for i := len(p.Chain) - 1; i >= 0; i-- {
-		step := p.Chain[i]
-		for r, h := range specialRoutes {
-			if wrapped := step.module.Middleware(h); wrapped != nil {
-				specialRoutes[r] = step.module.Middleware(h)
-			}
-		}
-	}
-	for r, h := range specialRoutes {
-		p.specialMux.HandleFunc(r, func(w http.ResponseWriter, r *http.Request) {
-			st := s.NewState()
-			r = r.WithContext(s.WithState(r.Context(), st))
-			h.ServeHTTP(w, r)
-		})
+	if err := p.registerSpecialRoutes(); err != nil {
+		return err
 	}
 
 	proxy := httputil.ReverseProxy{}
@@ -142,6 +119,32 @@ func (p *AuthProxy) ListenAndServe() error {
 	})
 
 	return http.ListenAndServe(p.Address, rootMux)
+}
+
+func (p *AuthProxy) registerSpecialRoutes() error {
+	specialRoutes := make(map[string]http.HandlerFunc)
+	for i := len(p.Chain) - 1; i >= 0; i-- {
+		step := p.Chain[i]
+		if moduleSpecialRoutes := step.module.SpecialRoutes(); moduleSpecialRoutes != nil {
+			maps.Copy(specialRoutes, moduleSpecialRoutes)
+		}
+	}
+	for i := len(p.Chain) - 1; i >= 0; i-- {
+		step := p.Chain[i]
+		for r, h := range specialRoutes {
+			if wrapped := step.module.Middleware(h); wrapped != nil {
+				specialRoutes[r] = step.module.Middleware(h)
+			}
+		}
+	}
+	for r, h := range specialRoutes {
+		p.specialMux.HandleFunc(r, func(w http.ResponseWriter, r *http.Request) {
+			st := s.NewState()
+			r = r.WithContext(s.WithState(r.Context(), st))
+			h.ServeHTTP(w, r)
+		})
+	}
+	return nil
 }
 
 func (p *AuthProxy) proxyDirector(req *http.Request) {
