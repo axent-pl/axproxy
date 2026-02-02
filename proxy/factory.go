@@ -27,6 +27,7 @@ func (h ProxyHandler) Unmarshal(apiVersion string, rawYAML []byte) (AuthProxy, e
 		if err := yaml.Unmarshal(rawYAML, &obj); err != nil {
 			return AuthProxy{}, err
 		}
+		obj.Spec.Metadata = obj.Metadata
 		return obj.Spec, nil
 	default:
 		return AuthProxy{}, fmt.Errorf("unsupported apiVersion %q", apiVersion)

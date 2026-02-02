@@ -1,18 +1,20 @@
 package proxy
 
 import (
+	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 
+	"github.com/axent-pl/axproxy/manifest"
 	"github.com/axent-pl/axproxy/module"
 	s "github.com/axent-pl/axproxy/state"
 )
 
 type AuthProxy struct {
+	Metadata    manifest.ObjectMeta `yaml:"metadata"`
 	Address     string              `yaml:"listen"`
 	Prefix      string              `yaml:"special_prefix"`
 	Upstreams   []Upstream          `yaml:"upstreams"`
@@ -38,7 +40,6 @@ type Upstream struct {
 }
 
 func (p *AuthProxy) ListenAndServe() error {
-	p.specialMux = http.NewServeMux()
 
 	if err := p.initUpstreamMap(); err != nil {
 		return err
@@ -122,18 +123,35 @@ func (p *AuthProxy) ListenAndServe() error {
 }
 
 func (p *AuthProxy) registerSpecialRoutes() error {
+	p.specialMux = http.NewServeMux()
+
 	specialRoutes := make(map[string]http.HandlerFunc)
+	type routeOwner struct {
+		kind string
+		name string
+	}
+	routeOwners := make(map[string]routeOwner)
 	for i := len(p.Chain) - 1; i >= 0; i-- {
 		step := p.Chain[i]
 		if moduleSpecialRoutes := step.module.SpecialRoutes(); moduleSpecialRoutes != nil {
-			maps.Copy(specialRoutes, moduleSpecialRoutes)
+			for path, handler := range moduleSpecialRoutes {
+				if owner, exists := routeOwners[path]; exists {
+					return fmt.Errorf("special route already registered: %s (new %s/%s, existing %s/%s)", path, step.module.Kind(), step.module.Name(), owner.kind, owner.name)
+				}
+				slog.Info("registering special route", "proxy_name", p.Metadata.Name, "path", path, "module_kind", step.module.Kind(), "module_name", step.module.Name())
+				specialRoutes[path] = handler
+				routeOwners[path] = routeOwner{
+					kind: step.module.Kind(),
+					name: step.module.Name(),
+				}
+			}
 		}
 	}
 	for i := len(p.Chain) - 1; i >= 0; i-- {
 		step := p.Chain[i]
 		for r, h := range specialRoutes {
 			if wrapped := step.module.Middleware(h); wrapped != nil {
-				specialRoutes[r] = step.module.Middleware(h)
+				specialRoutes[r] = wrapped
 			}
 		}
 	}
