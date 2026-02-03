@@ -63,6 +63,31 @@ func (m *AuthOIDCModule) SpecialRoutes() map[string]http.HandlerFunc {
 	}
 }
 
+func (m *AuthOIDCModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.ProxyHandlerFunc {
+	return module.ProxyHandlerFunc(func(w http.ResponseWriter, r *http.Request, st *state.State) {
+		if r == nil || st == nil {
+			next(w, r, st)
+			return
+		}
+		sess := st.Session
+		if _, ok := sess.Values["principal"]; !ok {
+			scheme := utils.RequestScheme(r)
+			currentURL := scheme + "://" + r.Host + r.URL.RequestURI()
+			loginURL := &url.URL{
+				Scheme: utils.RequestScheme(r),
+				Host:   r.Host,
+				Path:   "/_/oidc-login",
+			}
+			q := loginURL.Query()
+			q.Set("entrypoint_url", currentURL)
+			loginURL.RawQuery = q.Encode()
+			http.Redirect(w, r, loginURL.String(), http.StatusFound)
+			return
+		}
+		next(w, r, st)
+	})
+}
+
 // special handlers
 
 func (m *AuthOIDCModule) getLoginHandler() http.HandlerFunc {
@@ -188,7 +213,7 @@ func (m *AuthOIDCModule) getCallbackHandler() http.HandlerFunc {
 			return
 		}
 
-		slog.Info("principal", "principal", principal)
+		sess.Values["principal"] = principal
 
 		// if nonce, ok := principal.Attributes["nonce"].(string); !ok || nonce != sess.Nonce {
 		// 	slog.Error(fmt.Sprintf("nonce does not match: wat %s, got %s", sess.Nonce, nonce))
