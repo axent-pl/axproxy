@@ -42,6 +42,12 @@ Golang errors in file: [utils]:
 
 
 
+Golang errors in file: [utils/mapper]:
+
+  > [line 0 : column 0] - loading files from package "utils/mapper": err: exit status 1: stderr: go: go.mod requires go >= 1.25.6 (running go 1.25.5; GOTOOLCHAIN=local)
+
+
+
 
 Summary:
   Gosec  : dev

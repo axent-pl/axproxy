@@ -1,7 +1,7 @@
                    
                    
 ┌─────────────────┐
-│ 5 Code Findings │
+│ 6 Code Findings │
 └─────────────────┘
                                     
     assets/servercerts/localhost.key
@@ -22,7 +22,9 @@
           to domains in an allowlist.                                                                         
           Details: https://sg.run/2ZW45                                                                       
                                                                                                               
-          202┆ http.Redirect(w, r, entrypoint, http.StatusFound)
+           84┆ http.Redirect(w, r, loginURL.String(), http.StatusFound)
+            ⋮┆----------------------------------------
+          227┆ http.Redirect(w, r, entrypoint, http.StatusFound)
                       
     modules/session.go
     ❯❱ go.lang.security.audit.net.cookie-missing-httponly.cookie-missing-httponly
