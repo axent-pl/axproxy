@@ -27,6 +27,9 @@ func (EnrichmentHandler) Unmarshal(apiVersion string, rawYAML []byte) (module.Mo
 			return &EnrichmentModule{}, err
 		}
 		obj.Spec.Metadata = obj.Metadata
+		if err := obj.Spec.Start(); err != nil {
+			return &EnrichmentModule{}, err
+		}
 		return &obj.Spec, nil
 	default:
 		return &EnrichmentModule{}, fmt.Errorf("unsupported apiVersion %q", apiVersion)

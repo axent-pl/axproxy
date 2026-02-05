@@ -22,6 +22,9 @@ spec:
       kind: Enrichment
       name: dummy
   - moduleRef:
+      kind: Enrichment
+      name: ldap
+  - moduleRef:
       kind: Rewriter
       name: url
   - moduleRef:
@@ -54,6 +57,9 @@ spec:
   - moduleRef:
       kind: Enrichment
       name: dummy
+  - moduleRef:
+      kind: Enrichment
+      name: ldap
   - moduleRef:
       kind: Rewriter
       name: url
@@ -115,9 +121,9 @@ spec:
   scope: openid email profile
   client_id: ACME
   client_secret: acme-secret
-  jwks_url: http://localhost:8080/.well-known/jwks.json
-  authorize_url: http://localhost:8080/authorize
-  token_url: http://localhost:8080/token
+  jwks_url: http://auth-server:8888/.well-known/jwks.json
+  authorize_url: http://localhost:8888/authorize
+  token_url: http://auth-server:8888/token
 ---
 apiVersion: v1
 kind: Enrichment
@@ -136,3 +142,27 @@ spec:
         - "email"
       mappings:
         "session.dummy_email": ${inputs.email}
+---
+apiVersion: v1
+kind: Enrichment
+metadata:
+  name: ldap
+spec:
+  sources:
+    - name: ldap
+      type: ldap
+      ldap:
+        addr: "ldap://samba-ad:389"
+        bind_dn: "Administrator@EXAMPLE.LOCAL"
+        bind_password: "Passw0rd!"
+        base_dn: "CN=Users,DC=example,DC=local"
+        timeout: "10s"
+  lookups:
+    - name: sAMAccountName
+      source: ldap
+      inputs:
+        "employeeNumber": ${session.oidc_claims.sub}
+      outputs:
+        - "sAMAccountName"
+      mappings:
+        "session.sAMAccountName": ${sAMAccountName}

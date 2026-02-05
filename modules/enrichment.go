@@ -47,7 +47,6 @@ func (m *EnrichmentModule) Name() string {
 }
 
 func (m *EnrichmentModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.ProxyHandlerFunc {
-	m.initSources() // will go to factory
 	return module.ProxyHandlerFunc(func(w http.ResponseWriter, r *http.Request, st *state.State) {
 		if r == nil || st == nil {
 			next(w, r, st)
@@ -109,7 +108,7 @@ func (m *EnrichmentModule) doLookup(ctx context.Context, st *state.State) error 
 	return nil
 }
 
-func (m *EnrichmentModule) initSources() error {
+func (m *EnrichmentModule) Start() error {
 	m.srcInterfaces = make(map[string]enrichment.EnrichmentSourcer)
 	for _, source := range m.Sources {
 		switch source.Type {
