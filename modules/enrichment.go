@@ -3,6 +3,7 @@ package modules
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"net/http"
 
 	"github.com/axent-pl/axproxy/manifest"
@@ -34,7 +35,7 @@ type EnrichmentModule struct {
 	Sources  []EnrichmentSource  `yaml:"sources"`
 	Lookups  []EnrichmentLookup  `yaml:"lookups"`
 
-	srcInterfaces map[string]enrichment.EnricheSourcer
+	srcInterfaces map[string]enrichment.EnrichmentSourcer
 }
 
 func (m *EnrichmentModule) Kind() string {
@@ -45,41 +46,73 @@ func (m *EnrichmentModule) Name() string {
 	return m.Metadata.Name
 }
 
-func (m *EnrichmentModule) Middleware(next http.HandlerFunc) http.HandlerFunc {
+func (m *EnrichmentModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.ProxyHandlerFunc {
 	m.initSources() // will go to factory
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		st := state.GetState(r.Context())
+	return module.ProxyHandlerFunc(func(w http.ResponseWriter, r *http.Request, st *state.State) {
 		if r == nil || st == nil {
-			next.ServeHTTP(w, r)
+			next(w, r, st)
 			return
 		}
 		m.doLookup(r.Context(), st)
-		next.ServeHTTP(w, r)
+		next(w, r, st)
 	})
 }
 
-func (m *EnrichmentModule) doLookup(ctx context.Context, st *state.State) error {
-	dst := map[string]any{
-		"session": st.Session.Values,
+func (m *EnrichmentModule) mapLookupInputs(_ context.Context, lookup EnrichmentLookup, st *state.State) (map[string]string, error) {
+	src := map[string]any{
+		"session": st.Session.GetValues(),
 	}
+	dst := map[string]any{}
+	slog.Info("enrichment", "src", src)
+	if err := mapper.Apply(dst, src, lookup.Inputs); err != nil {
+		return nil, fmt.Errorf("enrichment mapping inputs (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
+	}
+
+	inputs := map[string]string{}
+	for k, v := range dst {
+		inputs[k] = v.(string)
+	}
+	return inputs, nil
+}
+
+func (m *EnrichmentModule) doLookup(ctx context.Context, st *state.State) error {
 	for _, lookup := range m.Lookups {
 		if _, ok := m.srcInterfaces[lookup.SourceName]; !ok {
+			slog.Error("enrichment", "error", fmt.Errorf("undefined enrichment source %s", lookup.SourceName))
 			return fmt.Errorf("undefined enrichment source %s", lookup.SourceName)
 		}
-		lookupOutput, err := m.srcInterfaces[lookup.SourceName].Lookup(ctx, lookup.Inputs, lookup.Outputs)
+		lookupInputs, err := m.mapLookupInputs(ctx, lookup, st)
 		if err != nil {
+			slog.Error("enrichment", "error", err)
+			return err
+		}
+		slog.Info("enrichment", "lookupInputMappings", lookup.Inputs)
+		slog.Info("enrichment", "lookupInputs", lookupInputs)
+		lookupOutputs, err := m.srcInterfaces[lookup.SourceName].Lookup(ctx, lookupInputs, lookup.Outputs)
+		if err != nil {
+			slog.Error("enrichment", "error", err)
 			return fmt.Errorf("enrichment lookup (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
-		err = mapper.Apply(dst, lookupOutput, lookup.Mappings)
+		slog.Info("enrichment", "lookupOutputs", lookupOutputs)
+		slog.Info("enrichment", "mappings", lookup.Mappings)
+		dst := map[string]any{}
+		err = mapper.Apply(dst, lookupOutputs, lookup.Mappings)
 		if err != nil {
+			slog.Error("enrichment", "error", err)
 			return fmt.Errorf("enrichment mapping (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
+		slog.Info("enrichment", "dst", dst)
+		if sessionValues, ok := dst["session"].(map[string]any); ok {
+			slog.Info("enrichment", "sessionValues", sessionValues)
+			st.Session.SetValues(sessionValues)
+		}
 	}
+	slog.Info("enrichment", "session", st.Session.GetValues())
 	return nil
 }
 
 func (m *EnrichmentModule) initSources() error {
-	m.srcInterfaces = make(map[string]enrichment.EnricheSourcer)
+	m.srcInterfaces = make(map[string]enrichment.EnrichmentSourcer)
 	for _, source := range m.Sources {
 		switch source.Type {
 		case "ldap":
@@ -88,6 +121,8 @@ func (m *EnrichmentModule) initSources() error {
 				return fmt.Errorf("could not initialize enrichment source (%s:%s): %w", source.Type, source.Name, err)
 			}
 			m.srcInterfaces[source.Name] = sourceInterface
+		case "dummy":
+			m.srcInterfaces[source.Name] = enrichment.NewDummyEnrichmentSource()
 		default:
 			return fmt.Errorf("could not initialize enrichment source (%s:%s): unknow source", source.Type, source.Name)
 		}

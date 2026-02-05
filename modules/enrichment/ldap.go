@@ -2,9 +2,13 @@ package enrichment
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"sync"
@@ -14,11 +18,18 @@ import (
 )
 
 type LdapEnrichmentSourceConfig struct {
-	Addr         string
-	BindDN       string
-	BindPassword string
-	BaseDN       string
-	Timeout      time.Duration
+	Addr         string        `yaml:"addr"`
+	BindDN       string        `yaml:"bind_dn"`
+	BindPassword string        `yaml:"bind_password"`
+	BaseDN       string        `yaml:"base_dn"`
+	Timeout      time.Duration `yaml:"timeout"`
+
+	TLSEnabled            bool   `yaml:"tls_enabled"`
+	TLSServerName         string `yaml:"tls_server_name"`
+	TLSInsecureSkipVerify bool   `yaml:"tls_insecure_skip_verify"`
+	TLSCAFile             string `yaml:"tls_ca_file"`
+	TLSClientCertFile     string `yaml:"tls_client_cert_file"`
+	TLSClientKeyFile      string `yaml:"tls_client_key_file"`
 }
 
 type LdapEnrichmentSource struct {
@@ -36,18 +47,31 @@ func dialAndBind(cfg *LdapEnrichmentSourceConfig) (*ldap.Conn, error) {
 		KeepAlive: 30 * time.Second, // enable keepalive probes
 	}
 
-	c, err := ldap.DialURL(cfg.Addr, ldap.DialWithDialer(dialer))
+	tlsCfg, err := buildTLSConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	dialOpts := []ldap.DialOpt{ldap.DialWithDialer(dialer)}
+	if tlsCfg != nil && strings.HasPrefix(strings.ToLower(cfg.Addr), "ldaps://") {
+		dialOpts = append(dialOpts, ldap.DialWithTLSConfig(tlsCfg))
+	}
+
+	c, err := ldap.DialURL(cfg.Addr, dialOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("ldap dial: %w", err)
 	}
 
-	// If you need StartTLS for ldap:// servers, uncomment and provide a tls.Config
-	// if cfg.UseStartTLS {
-	//     if err := c.StartTLS(cfg.TLSConfig); err != nil {
-	//         c.Close()
-	//         return nil, fmt.Errorf("starttls: %w", err)
-	//     }
-	// }
+	if cfg.TLSEnabled {
+		if !strings.HasPrefix(strings.ToLower(cfg.Addr), "ldap://") {
+			c.Close()
+			return nil, fmt.Errorf("starttls requires ldap:// address")
+		}
+		if err := c.StartTLS(tlsCfg); err != nil {
+			c.Close()
+			return nil, fmt.Errorf("starttls: %w", err)
+		}
+	}
 
 	// Per-operation I/O timeout (Search/Bind/etc.)
 	if cfg.Timeout > 0 {
@@ -61,6 +85,80 @@ func dialAndBind(cfg *LdapEnrichmentSourceConfig) (*ldap.Conn, error) {
 	}
 
 	return c, nil
+}
+
+func buildTLSConfig(cfg *LdapEnrichmentSourceConfig) (*tls.Config, error) {
+	if cfg == nil {
+		return nil, nil
+	}
+
+	needsTLS := cfg.TLSEnabled ||
+		cfg.TLSServerName != "" ||
+		cfg.TLSInsecureSkipVerify ||
+		cfg.TLSCAFile != "" ||
+		cfg.TLSClientCertFile != "" ||
+		cfg.TLSClientKeyFile != ""
+	if !needsTLS {
+		return nil, nil
+	}
+
+	tlsCfg := &tls.Config{
+		InsecureSkipVerify: cfg.TLSInsecureSkipVerify,
+	}
+
+	serverName := cfg.TLSServerName
+	if serverName == "" {
+		serverName = hostFromAddr(cfg.Addr)
+	}
+	if serverName != "" {
+		tlsCfg.ServerName = serverName
+	}
+
+	if cfg.TLSCAFile != "" {
+		caData, err := os.ReadFile(cfg.TLSCAFile)
+		if err != nil {
+			return nil, fmt.Errorf("read tls ca file: %w", err)
+		}
+		pool, err := x509.SystemCertPool()
+		if err != nil || pool == nil {
+			pool = x509.NewCertPool()
+		}
+		if !pool.AppendCertsFromPEM(caData) {
+			return nil, fmt.Errorf("append tls ca file: no certs found")
+		}
+		tlsCfg.RootCAs = pool
+	}
+
+	if cfg.TLSClientCertFile != "" || cfg.TLSClientKeyFile != "" {
+		if cfg.TLSClientCertFile == "" || cfg.TLSClientKeyFile == "" {
+			return nil, fmt.Errorf("tls client cert and key files must both be set")
+		}
+		cert, err := tls.LoadX509KeyPair(cfg.TLSClientCertFile, cfg.TLSClientKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("load tls client cert: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{cert}
+	}
+
+	return tlsCfg, nil
+}
+
+func hostFromAddr(addr string) string {
+	if addr == "" {
+		return ""
+	}
+	u, err := url.Parse(addr)
+	if err != nil {
+		return ""
+	}
+	host := u.Host
+	if host == "" {
+		return ""
+	}
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return h
+	}
+	return host
 }
 
 func NewLdapEnrichmentSource(cfg *LdapEnrichmentSourceConfig) (*LdapEnrichmentSource, error) {

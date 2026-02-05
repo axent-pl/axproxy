@@ -19,6 +19,9 @@ spec:
       kind: AuthOIDC
       name: axes
   - moduleRef:
+      kind: Enrichment
+      name: dummy
+  - moduleRef:
       kind: Rewriter
       name: url
   - moduleRef:
@@ -48,6 +51,9 @@ spec:
   - moduleRef:
       kind: AuthOIDC
       name: axes
+  - moduleRef:
+      kind: Enrichment
+      name: dummy
   - moduleRef:
       kind: Rewriter
       name: url
@@ -105,9 +111,28 @@ kind: AuthOIDC
 metadata:
   name: axes
 spec:
+  session_principal_key: oidc_principal
   scope: openid email profile
   client_id: ACME
   client_secret: acme-secret
   jwks_url: http://localhost:8080/.well-known/jwks.json
   authorize_url: http://localhost:8080/authorize
   token_url: http://localhost:8080/token
+---
+apiVersion: v1
+kind: Enrichment
+metadata:
+  name: dummy
+spec:
+  sources:
+    - name: dummy
+      type: dummy
+  lookups:
+    - name: email
+      source: dummy
+      inputs:
+        "email": ${session.oidc_claims.preferred_username}
+      outputs:
+        - "email"
+      mappings:
+        "sth": ${inputs.email}
