@@ -135,4 +135,4 @@ spec:
       outputs:
         - "email"
       mappings:
-        "sth": ${inputs.email}
+        "session.dummy_email": ${inputs.email}

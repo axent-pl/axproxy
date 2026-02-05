@@ -63,7 +63,6 @@ func (m *EnrichmentModule) mapLookupInputs(_ context.Context, lookup EnrichmentL
 		"session": st.Session.GetValues(),
 	}
 	dst := map[string]any{}
-	slog.Info("enrichment", "src", src)
 	if err := mapper.Apply(dst, src, lookup.Inputs); err != nil {
 		return nil, fmt.Errorf("enrichment mapping inputs (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 	}
@@ -77,37 +76,36 @@ func (m *EnrichmentModule) mapLookupInputs(_ context.Context, lookup EnrichmentL
 
 func (m *EnrichmentModule) doLookup(ctx context.Context, st *state.State) error {
 	for _, lookup := range m.Lookups {
+
 		if _, ok := m.srcInterfaces[lookup.SourceName]; !ok {
 			slog.Error("enrichment", "error", fmt.Errorf("undefined enrichment source %s", lookup.SourceName))
 			return fmt.Errorf("undefined enrichment source %s", lookup.SourceName)
 		}
+
 		lookupInputs, err := m.mapLookupInputs(ctx, lookup, st)
 		if err != nil {
 			slog.Error("enrichment", "error", err)
 			return err
 		}
-		slog.Info("enrichment", "lookupInputMappings", lookup.Inputs)
-		slog.Info("enrichment", "lookupInputs", lookupInputs)
+
 		lookupOutputs, err := m.srcInterfaces[lookup.SourceName].Lookup(ctx, lookupInputs, lookup.Outputs)
 		if err != nil {
 			slog.Error("enrichment", "error", err)
 			return fmt.Errorf("enrichment lookup (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
-		slog.Info("enrichment", "lookupOutputs", lookupOutputs)
-		slog.Info("enrichment", "mappings", lookup.Mappings)
+
 		dst := map[string]any{}
 		err = mapper.Apply(dst, lookupOutputs, lookup.Mappings)
 		if err != nil {
 			slog.Error("enrichment", "error", err)
 			return fmt.Errorf("enrichment mapping (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
-		slog.Info("enrichment", "dst", dst)
+
 		if sessionValues, ok := dst["session"].(map[string]any); ok {
-			slog.Info("enrichment", "sessionValues", sessionValues)
 			st.Session.SetValues(sessionValues)
 		}
 	}
-	slog.Info("enrichment", "session", st.Session.GetValues())
+
 	return nil
 }
 

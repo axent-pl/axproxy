@@ -173,21 +173,37 @@ func get(root any, path string) (any, bool, error) {
 	for _, st := range steps {
 		switch st.kind {
 		case stepKey:
-			m, _ := cur.(map[string]any)
-			if m == nil {
+			switch m := cur.(type) {
+			case map[string]any:
+				v, ok := m[st.key]
+				if !ok {
+					return nil, false, nil
+				}
+				cur = v
+			case map[string]string:
+				v, ok := m[st.key]
+				if !ok {
+					return nil, false, nil
+				}
+				cur = v
+			default:
 				return nil, false, nil
 			}
-			v, ok := m[st.key]
-			if !ok {
-				return nil, false, nil
-			}
-			cur = v
 		case stepIndex:
-			a, _ := cur.([]any)
-			if a == nil || st.idx >= len(a) {
+			switch a := cur.(type) {
+			case []any:
+				if st.idx >= len(a) {
+					return nil, false, nil
+				}
+				cur = a[st.idx]
+			case []string:
+				if st.idx >= len(a) {
+					return nil, false, nil
+				}
+				cur = a[st.idx]
+			default:
 				return nil, false, nil
 			}
-			cur = a[st.idx]
 		default:
 			return nil, false, fmt.Errorf("unknown step kind")
 		}
