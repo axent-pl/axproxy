@@ -13,24 +13,28 @@ func Apply(dst, src map[string]any, rules map[string]string) error {
 			return fmt.Errorf("mapper expression parse error %q: %w", dstPath, err)
 		}
 
-		if hasPath {
-			val, ok, err := get(src, path)
-			if err != nil {
-				return fmt.Errorf("get %q for dst %q: %w", path, dstPath, err)
-			}
-			if !ok && !hasDef {
+		if !hasPath {
+			if !hasDef {
 				continue
 			}
-			if !ok && hasDef {
-				val = def
-			}
-			if err := set(dst, dstPath, val); err != nil {
-				return fmt.Errorf("set dst %q: %w", dstPath, err)
-			}
-		} else if hasDef {
 			if err := set(dst, dstPath, def); err != nil {
 				return fmt.Errorf("set dst %q: %w", dstPath, err)
 			}
+			continue
+		}
+
+		val, ok, err := get(src, path)
+		if err != nil {
+			return fmt.Errorf("get %q for dst %q: %w", path, dstPath, err)
+		}
+		if !ok {
+			if !hasDef {
+				continue
+			}
+			val = def
+		}
+		if err := set(dst, dstPath, val); err != nil {
+			return fmt.Errorf("set dst %q: %w", dstPath, err)
 		}
 
 	}
