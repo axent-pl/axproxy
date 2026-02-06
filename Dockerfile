@@ -29,9 +29,8 @@ ENV KRB5_CLIENT_KTNAME=/run/secrets/proxy.keytab
 RUN useradd -m -u 10001 appuser
 WORKDIR /app
 
-COPY --from=builder /out/app /app/app
-COPY assets/ /app/assets/
-RUN chown -R appuser:appuser /app
+COPY --chown=appuser:appuser --from=builder /out/app /app/app
+COPY --chown=appuser:appuser assets/ /app/assets/
 USER appuser
 
 CMD ["/app/app"]
