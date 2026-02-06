@@ -2,6 +2,7 @@ package mapper
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -163,51 +164,53 @@ func parsePath(path string) ([]step, error) {
 
 // ---------------- get/set ----------------
 
-// get returns (value, true, nil) if found; (nil, false, nil) if missing.
 func get(root any, path string) (any, bool, error) {
 	steps, err := parsePath(path)
 	if err != nil {
 		return nil, false, err
 	}
+
 	cur := root
+
 	for _, st := range steps {
+		v := reflect.ValueOf(cur)
+		if !v.IsValid() {
+			return nil, false, nil
+		}
+
+		// unwrap interfaces/pointers
+		for v.Kind() == reflect.Interface || v.Kind() == reflect.Pointer {
+			if v.IsNil() {
+				return nil, false, nil
+			}
+			v = v.Elem()
+		}
+
 		switch st.kind {
 		case stepKey:
-			switch m := cur.(type) {
-			case map[string]any:
-				v, ok := m[st.key]
-				if !ok {
-					return nil, false, nil
-				}
-				cur = v
-			case map[string]string:
-				v, ok := m[st.key]
-				if !ok {
-					return nil, false, nil
-				}
-				cur = v
-			default:
+			if v.Kind() != reflect.Map || v.Type().Key().Kind() != reflect.String {
 				return nil, false, nil
 			}
+			mv := v.MapIndex(reflect.ValueOf(st.key))
+			if !mv.IsValid() {
+				return nil, false, nil
+			}
+			cur = mv.Interface()
+
 		case stepIndex:
-			switch a := cur.(type) {
-			case []any:
-				if st.idx >= len(a) {
-					return nil, false, nil
-				}
-				cur = a[st.idx]
-			case []string:
-				if st.idx >= len(a) {
-					return nil, false, nil
-				}
-				cur = a[st.idx]
-			default:
+			if v.Kind() != reflect.Slice && v.Kind() != reflect.Array {
 				return nil, false, nil
 			}
+			if st.idx < 0 || st.idx >= v.Len() {
+				return nil, false, nil
+			}
+			cur = v.Index(st.idx).Interface()
+
 		default:
 			return nil, false, fmt.Errorf("unknown step kind")
 		}
 	}
+
 	return cur, true, nil
 }
 
