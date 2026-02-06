@@ -22,9 +22,9 @@
           to domains in an allowlist.                                                                         
           Details: https://sg.run/2ZW45                                                                       
                                                                                                               
-           88┆ http.Redirect(w, r, loginURL.String(), http.StatusFound)
+           89┆ http.Redirect(w, r, loginURL.String(), http.StatusFound)
             ⋮┆----------------------------------------
-          263┆ http.Redirect(w, r, entrypoint, http.StatusFound)
+          266┆ http.Redirect(w, r, entrypoint, http.StatusFound)
                               
     modules/enrichment/ldap.go
     ❯❱ go.lang.security.audit.crypto.missing-ssl-minversion.missing-ssl-minversion

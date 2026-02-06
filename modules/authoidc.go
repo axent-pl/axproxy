@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/axent-pl/axproxy/manifest"
 	"github.com/axent-pl/axproxy/module"
@@ -34,9 +33,8 @@ type AuthOIDCModule struct {
 	AuthorizeURL string `yaml:"authorize_url"`
 	JWKSURL      string `yaml:"jwks_url"`
 
-	jwksStartOnce sync.Once
-	jwksScheme    xjwt.JWKSJWTScheme `yaml:"-"`
-	jwtVerifier   xjwt.JWTVerifier   `yaml:"-"`
+	jwksScheme  xjwt.JWKSJWTScheme `yaml:"-"`
+	jwtVerifier xjwt.JWTVerifier   `yaml:"-"`
 }
 
 func (m *AuthOIDCModule) Kind() string {
@@ -47,18 +45,21 @@ func (m *AuthOIDCModule) Name() string {
 	return m.Metadata.Name
 }
 
-func (m *AuthOIDCModule) SpecialRoutes() map[string]http.HandlerFunc {
+func (m *AuthOIDCModule) Start() error {
 	jwksURL, err := url.Parse(m.JWKSURL)
 	if err != nil {
 		slog.Error("invalid JWKS URL", "error", err)
+		return fmt.Errorf("invalid JWKS URL: %v", err)
 	}
-	m.jwksStartOnce.Do(func() {
-		m.jwksScheme = xjwt.JWKSJWTScheme{
-			JWKSURL: *jwksURL,
-		}
-		m.jwksScheme.Start(context.Background())
-		m.jwtVerifier = xjwt.JWTVerifier{}
-	})
+	m.jwksScheme = xjwt.JWKSJWTScheme{
+		JWKSURL: *jwksURL,
+	}
+	m.jwksScheme.Start(context.Background())
+	m.jwtVerifier = xjwt.JWTVerifier{}
+	return nil
+}
+
+func (m *AuthOIDCModule) SpecialRoutes() map[string]http.HandlerFunc {
 
 	return map[string]http.HandlerFunc{
 		"/oidc-callback": m.getCallbackHandler(),
@@ -86,9 +87,10 @@ func (m *AuthOIDCModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.Pr
 			q.Set("entrypoint_url", currentURL)
 			loginURL.RawQuery = q.Encode()
 			http.Redirect(w, r, loginURL.String(), http.StatusFound)
+			slog.Info("AuthOIDCModule redirecting to oidc-login", "request_id", st.RequestID)
 			return
 		}
-		slog.Info("oidc", "subjectID", subjectID)
+		slog.Info("AuthOIDCModule authentication completed", "request_id", st.RequestID, "subjectID", subjectID)
 		next(w, r, st)
 	})
 }
@@ -171,6 +173,7 @@ func (m *AuthOIDCModule) getLoginHandler() http.HandlerFunc {
 		q.Set("nonce", oidcNonce)
 		authURL.RawQuery = q.Encode()
 		http.Redirect(w, r, authURL.String(), http.StatusFound)
+		slog.Info("AuthOIDCModule redirecting to authorization server", "request_id", st.RequestID, "authorize_url", m.AuthorizeURL)
 	})
 }
 

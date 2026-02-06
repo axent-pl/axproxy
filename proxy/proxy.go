@@ -97,7 +97,8 @@ func (p *AuthProxy) ListenAndServe() error {
 
 	// ErrorHandler
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		slog.Error("proxy error", "error", err)
+		st := s.GetState(r.Context())
+		slog.Error("proxy error", "error", err, "request_id", st.RequestID)
 		http.Error(w, "bad gateway", http.StatusBadGateway)
 	}
 

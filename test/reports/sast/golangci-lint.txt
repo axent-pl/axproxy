@@ -1,7 +1,4 @@
-modules/enrichment.go:50:15: Error return value of `m.initSources` is not checked (errcheck)
-	m.initSources() // will go to factory
-	             ^
-modules/enrichment.go:56:13: Error return value of `m.doLookup` is not checked (errcheck)
+modules/enrichment.go:55:13: Error return value of `m.doLookup` is not checked (errcheck)
 		m.doLookup(r.Context(), st)
 		          ^
 modules/enrichment/ldap.go:67:11: Error return value of `c.Close` is not checked (errcheck)
@@ -19,5 +16,5 @@ modules/enrichment/ldap.go:177:16: Error return value of `lc.conn.Close` is not 
 modules/enrichment/ldap.go:237:16: Error return value of `lc.conn.Close` is not checked (errcheck)
 		lc.conn.Close()
 		             ^
-7 issues:
-* errcheck: 7
+6 issues:
+* errcheck: 6

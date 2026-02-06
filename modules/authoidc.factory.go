@@ -29,6 +29,9 @@ func (AuthOIDCHandler) Unmarshal(apiVersion string, rawYAML []byte) (module.Modu
 			return &AuthOIDCModule{}, err
 		}
 		obj.Spec.Metadata = obj.Metadata
+		if err := obj.Spec.Start(); err != nil {
+			return &AuthOIDCModule{}, err
+		}
 		return &obj.Spec, nil
 	default:
 		return &AuthOIDCModule{}, fmt.Errorf("unsupported apiVersion %q", apiVersion)

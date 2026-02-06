@@ -77,32 +77,34 @@ func (m *EnrichmentModule) doLookup(ctx context.Context, st *state.State) error 
 	for _, lookup := range m.Lookups {
 
 		if _, ok := m.srcInterfaces[lookup.SourceName]; !ok {
-			slog.Error("enrichment", "error", fmt.Errorf("undefined enrichment source %s", lookup.SourceName))
+			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", fmt.Errorf("undefined enrichment source %s", lookup.SourceName))
 			return fmt.Errorf("undefined enrichment source %s", lookup.SourceName)
 		}
 
 		lookupInputs, err := m.mapLookupInputs(ctx, lookup, st)
 		if err != nil {
-			slog.Error("enrichment", "error", err)
+			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", err)
 			return err
 		}
 
 		lookupOutputs, err := m.srcInterfaces[lookup.SourceName].Lookup(ctx, lookupInputs, lookup.Outputs)
 		if err != nil {
-			slog.Error("enrichment", "error", err)
+			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", err)
 			return fmt.Errorf("enrichment lookup (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
 
 		dst := map[string]any{}
 		err = mapper.Apply(dst, lookupOutputs, lookup.Mappings)
 		if err != nil {
-			slog.Error("enrichment", "error", err)
+			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", err)
 			return fmt.Errorf("enrichment mapping (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
 
 		if sessionValues, ok := dst["session"].(map[string]any); ok {
 			st.Session.SetValues(sessionValues)
 		}
+
+		slog.Info("EnrichmentModule lookup completed", "request_id", st.RequestID, "enrichment", m.Metadata.Name, "lookup", lookup.Name)
 	}
 
 	return nil
