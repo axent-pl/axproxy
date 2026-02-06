@@ -13,24 +13,28 @@ func Apply(dst, src map[string]any, rules map[string]string) error {
 			return fmt.Errorf("mapper expression parse error %q: %w", dstPath, err)
 		}
 
-		if hasPath {
-			val, ok, err := get(src, path)
-			if err != nil {
-				return fmt.Errorf("get %q for dst %q: %w", path, dstPath, err)
-			}
-			if !ok && !hasDef {
+		if !hasPath {
+			if !hasDef {
 				continue
 			}
-			if !ok && hasDef {
-				val = def
-			}
-			if err := set(dst, dstPath, val); err != nil {
-				return fmt.Errorf("set dst %q: %w", dstPath, err)
-			}
-		} else if hasDef {
 			if err := set(dst, dstPath, def); err != nil {
 				return fmt.Errorf("set dst %q: %w", dstPath, err)
 			}
+			continue
+		}
+
+		val, ok, err := get(src, path)
+		if err != nil {
+			return fmt.Errorf("get %q for dst %q: %w", path, dstPath, err)
+		}
+		if !ok {
+			if !hasDef {
+				continue
+			}
+			val = def
+		}
+		if err := set(dst, dstPath, val); err != nil {
+			return fmt.Errorf("set dst %q: %w", dstPath, err)
 		}
 
 	}
@@ -169,21 +173,37 @@ func get(root any, path string) (any, bool, error) {
 	for _, st := range steps {
 		switch st.kind {
 		case stepKey:
-			m, _ := cur.(map[string]any)
-			if m == nil {
+			switch m := cur.(type) {
+			case map[string]any:
+				v, ok := m[st.key]
+				if !ok {
+					return nil, false, nil
+				}
+				cur = v
+			case map[string]string:
+				v, ok := m[st.key]
+				if !ok {
+					return nil, false, nil
+				}
+				cur = v
+			default:
 				return nil, false, nil
 			}
-			v, ok := m[st.key]
-			if !ok {
-				return nil, false, nil
-			}
-			cur = v
 		case stepIndex:
-			a, _ := cur.([]any)
-			if a == nil || st.idx >= len(a) {
+			switch a := cur.(type) {
+			case []any:
+				if st.idx >= len(a) {
+					return nil, false, nil
+				}
+				cur = a[st.idx]
+			case []string:
+				if st.idx >= len(a) {
+					return nil, false, nil
+				}
+				cur = a[st.idx]
+			default:
 				return nil, false, nil
 			}
-			cur = a[st.idx]
 		default:
 			return nil, false, fmt.Errorf("unknown step kind")
 		}

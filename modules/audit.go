@@ -3,8 +3,6 @@ package modules
 import (
 	"bufio"
 	"bytes"
-	"crypto/rand"
-	"encoding/base64"
 	"io"
 	"log/slog"
 	"net"
@@ -113,7 +111,7 @@ func (m *AuditModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.Proxy
 		}
 
 		start := time.Now()
-		requestID := m.ensureRequestID(r)
+		requestID := st.RequestID
 		st.Set(auditRequestIDKey, requestID)
 		if header := m.requestIDHeader(); header != "" && requestID != "" {
 			w.Header().Set(header, requestID)
@@ -133,12 +131,12 @@ func (m *AuditModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.Proxy
 		duration := time.Since(start)
 		attrs := m.buildAttrs(infoReqFields, infoRespFields, requestID, r, st, aw, duration, reqBody, reqBodyLen, reqBodyTruncated)
 		if len(attrs) > 0 {
-			slog.Info("audit", attrs...)
+			slog.Info("AuditModule request completed", attrs...)
 		}
 
 		debugAttrs := m.buildAttrs(debugReqFields, debugRespFields, requestID, r, st, aw, duration, reqBody, reqBodyLen, reqBodyTruncated)
 		if len(debugAttrs) > 0 {
-			slog.Debug("audit", debugAttrs...)
+			slog.Debug("AuditModule request completed", debugAttrs...)
 		}
 
 	})
@@ -156,18 +154,6 @@ func (m *AuditModule) maxBodyBytes() int {
 		return m.MaxBodyBytes
 	}
 	return defaultMaxBodyBytes
-}
-
-func (m *AuditModule) ensureRequestID(r *http.Request) string {
-	if r == nil {
-		return ""
-	}
-	if header := m.requestIDHeader(); header != "" {
-		if id := r.Header.Get(header); id != "" {
-			return id
-		}
-	}
-	return newRequestID()
 }
 
 func (m *AuditModule) captureRequestBody(r *http.Request) (string, bool, int) {
@@ -373,12 +359,4 @@ func (w *auditResponseWriter) Push(target string, opts *http.PushOptions) error 
 		return p.Push(target, opts)
 	}
 	return http.ErrNotSupported
-}
-
-func newRequestID() string {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return ""
-	}
-	return base64.RawURLEncoding.EncodeToString(buf)
 }

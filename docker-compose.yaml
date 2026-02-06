@@ -1,0 +1,61 @@
+services:
+  samba-ad:
+    image: instantlinux/samba-dc:latest
+    privileged: true
+    environment:
+      - DOMAIN=example.local
+      - REALM=EXAMPLE.LOCAL
+      - DNS_FORWARDER=8.8.8.8
+      - ADMIN_PASSWORD=Passw0rd!
+      - ADMIN_PW=Passw0rd!
+    hostname: samba-ad
+    domainname: example.local
+    dns:
+      - 127.0.0.1
+    networks:
+      default:
+        aliases:
+          - samba-ad
+          - samba-ad.example.local
+    secrets:
+      - samba-admin-password
+    volumes:
+      - ./containers/vol-samba-confd:/etc/samba/conf.d
+      - ./containers/vol-samba-scripts:/opt/scripts
+      - ./containers/vol-keytabs:/keytabs
+
+  auth-server:
+    image: prond/axes:nightly
+    environment:
+      - SERVER_ADDRESS=:8888
+      - OAUTH2_ISSUER=http://auth-server:8888
+      - OAUTH2_ISSUER_FROM_ORIGIN=FALSE
+    volumes:
+      - ./containers/vol-axes-config:/app/assets/config
+    ports:
+      - "8888:8888"
+    networks:
+      - default
+
+
+  auth-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    hostname: auth-proxy  
+    ports:
+      - "8787:8787"
+    networks:
+      - default
+
+secrets:
+  samba-admin-password:
+    file: ./containers/secrets/samba-admin-password
+
+networks:
+  default:
+    name: axproxy
+
+volumes:
+  vol_session_data:
+    driver: local

@@ -1,1 +1,20 @@
-0 issues.
+modules/enrichment.go:55:13: Error return value of `m.doLookup` is not checked (errcheck)
+		m.doLookup(r.Context(), st)
+		          ^
+modules/enrichment/ldap.go:67:11: Error return value of `c.Close` is not checked (errcheck)
+			c.Close()
+			       ^
+modules/enrichment/ldap.go:71:11: Error return value of `c.Close` is not checked (errcheck)
+			c.Close()
+			       ^
+modules/enrichment/ldap.go:83:10: Error return value of `c.Close` is not checked (errcheck)
+		c.Close()
+		       ^
+modules/enrichment/ldap.go:177:16: Error return value of `lc.conn.Close` is not checked (errcheck)
+		lc.conn.Close()
+		             ^
+modules/enrichment/ldap.go:237:16: Error return value of `lc.conn.Close` is not checked (errcheck)
+		lc.conn.Close()
+		             ^
+6 issues:
+* errcheck: 6

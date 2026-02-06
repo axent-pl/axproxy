@@ -1,0 +1,10 @@
+containers/
+test/
+.git/
+.github/
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.tmp
+docker-compose.yaml
