@@ -12,7 +12,7 @@ sast-gosec:
 
 sast-govulncheck:
 	@mkdir -p $(REPORT_DIR)
-	@docker run --rm -v "$(PWD)":/app -w /app golang:1.25.6 go mod download && go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./... >$(REPORT_DIR)/govulncheck.txt
+	@docker run --rm -v "$(PWD)":/app -w /app golang:1.25.7 go mod download && go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./... >$(REPORT_DIR)/govulncheck.txt
 	@echo "SAST govulncheck completed"
 
 sast-semgrep:
@@ -28,3 +28,6 @@ sast-golangci-lint:
 
 sast: sast-gosec sast-govulncheck sast-semgrep sast-golangci-lint
 	@echo "SAST completed"
+
+up:
+	docker-compose up -d --build
