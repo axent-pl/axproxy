@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"os"
+	"strings"
 
 	mf "github.com/axent-pl/axproxy/manifest"
 	"github.com/axent-pl/axproxy/module"
@@ -12,13 +13,33 @@ import (
 )
 
 func init() {
-	if value, ok := os.LookupEnv("LOG_FORMAT"); ok && value == "json" {
-		jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelDebug,
-		})
-		jsonLogger := slog.New(jsonHandler)
-		slog.SetDefault(jsonLogger)
+	format := "text"
+	if value, ok := os.LookupEnv("LOG_FORMAT"); ok && value != "" {
+		format = value
 	}
+
+	level := slog.LevelInfo
+	if value, ok := os.LookupEnv("LOG_LEVEL"); ok && value != "" {
+		switch strings.ToLower(value) {
+		case "debug":
+			level = slog.LevelDebug
+		case "info":
+			level = slog.LevelInfo
+		case "warn", "warning":
+			level = slog.LevelWarn
+		case "error":
+			level = slog.LevelError
+		}
+	}
+
+	opts := &slog.HandlerOptions{Level: level}
+	var handler slog.Handler
+	if format == "json" {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+	} else {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+	}
+	slog.SetDefault(slog.New(handler))
 }
 
 func main() {
