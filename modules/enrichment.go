@@ -58,9 +58,7 @@ func (m *EnrichmentModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.
 }
 
 func (m *EnrichmentModule) mapLookupInputs(_ context.Context, lookup EnrichmentLookup, st *state.State) (map[string]string, error) {
-	src := map[string]any{
-		"session": st.Session.GetValues(),
-	}
+	src := mapper.BuildSourceMap(st.Session, nil, nil)
 	dst := map[string]any{}
 	if err := mapper.Apply(dst, src, lookup.Inputs); err != nil {
 		return nil, fmt.Errorf("enrichment mapping inputs (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
@@ -89,19 +87,19 @@ func (m *EnrichmentModule) doLookup(ctx context.Context, st *state.State) error 
 
 		lookupOutputs, err := m.srcInterfaces[lookup.SourceName].Lookup(ctx, lookupInputs, lookup.Outputs)
 		if err != nil {
-			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", err)
-			return fmt.Errorf("enrichment lookup (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
+			slog.Error("EnrichmentModule lookup call failed", "request_id", st.RequestID, "error", err)
+			return fmt.Errorf("enrichment lookup call failed (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
 
 		dst := map[string]any{}
 		err = mapper.Apply(dst, lookupOutputs, lookup.Mappings)
 		if err != nil {
-			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", err)
-			return fmt.Errorf("enrichment mapping (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
+			slog.Error("EnrichmentModule lookup output mapping failed", "request_id", st.RequestID, "error", err)
+			return fmt.Errorf("enrichment lookup output mapping failed (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
-
-		if sessionValues, ok := dst["session"].(map[string]any); ok {
-			st.Session.SetValues(sessionValues)
+		if err := mapper.ApplyToTargets(dst, st.Session, nil, nil); err != nil {
+			slog.Error("EnrichmentModule lookup output mapping to targets failed", "request_id", st.RequestID, "error", err)
+			return fmt.Errorf("enrichment lookup output mapping to targets (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
 		}
 
 		slog.Info("EnrichmentModule lookup completed", "request_id", st.RequestID, "enrichment", m.Metadata.Name, "lookup", lookup.Name)
