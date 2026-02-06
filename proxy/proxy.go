@@ -77,25 +77,6 @@ func (p *AuthProxy) ListenAndServe() error {
 	// --------------------
 
 	// --------------------
-	// Rewrite
-	// --------------------
-	rewriteHandler := module.ProxyRewriteHandlerFunc(func(*httputil.ProxyRequest, *s.State) {
-
-	})
-	for i := len(p.Chain) - 1; i >= 0; i-- {
-		step := p.Chain[i]
-		handlerWrapped := step.module.ProxyRewriteMiddleware(rewriteHandler)
-		if handlerWrapped != nil {
-			rewriteHandler = handlerWrapped
-		}
-	}
-	proxy.Rewrite = func(r *httputil.ProxyRequest) {
-		st := s.GetState(r.In.Context())
-		rewriteHandler(r, st)
-	}
-	// --------------------
-
-	// --------------------
 	// ModifyResponse
 	// --------------------
 	modifyResponseHandler := module.ProxyModifyResponseHandlerFunc(func(*http.Response, *s.State) error {
