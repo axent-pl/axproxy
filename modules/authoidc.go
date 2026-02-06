@@ -14,6 +14,7 @@ import (
 	"github.com/axent-pl/axproxy/module"
 	"github.com/axent-pl/axproxy/state"
 	"github.com/axent-pl/axproxy/utils"
+	"github.com/axent-pl/axproxy/utils/mapper"
 	xjwt "github.com/axent-pl/credentials/jwt"
 )
 
@@ -22,6 +23,7 @@ const KIND_AUTHOIDC string = "AuthOIDC"
 type AuthOIDCModule struct {
 	module.NoopModule
 	Metadata manifest.ObjectMeta `yaml:"metadata"`
+	When     mapper.Condition    `yaml:"when"`
 
 	SessionSubjectIDKey string `yaml:"session_subject_id_key"`
 	SessionClaimsKey    string `yaml:"session_claims_key"`
@@ -32,6 +34,10 @@ type AuthOIDCModule struct {
 	TokenURL     string `yaml:"token_url"`
 	AuthorizeURL string `yaml:"authorize_url"`
 	JWKSURL      string `yaml:"jwks_url"`
+
+	ProxyAddress string `yaml:"proxy_addr"`
+	ProxyUser    string `yaml:"proxy_user"`
+	ProxyPass    string `yaml:"proxy_pass"`
 
 	jwksScheme  xjwt.JWKSJWTScheme `yaml:"-"`
 	jwtVerifier xjwt.JWTVerifier   `yaml:"-"`
@@ -126,6 +132,28 @@ func (m *AuthOIDCModule) storePrincipal(session *state.Session, subjectID string
 	}
 }
 
+func (m *AuthOIDCModule) httpClient() *http.Client {
+	if strings.TrimSpace(m.ProxyAddress) == "" {
+		return &http.Client{}
+	}
+	proxyURL, err := url.Parse(strings.TrimSpace(m.ProxyAddress))
+	if err != nil {
+		slog.Error("invalid proxy address", "error", err, "proxy_addr", m.ProxyAddress)
+		return &http.Client{}
+	}
+	if proxyURL.Scheme == "" {
+		proxyURL.Scheme = "http"
+	}
+	if m.ProxyUser != "" || m.ProxyPass != "" {
+		proxyURL.User = url.UserPassword(m.ProxyUser, m.ProxyPass)
+	}
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyURL(proxyURL),
+		},
+	}
+}
+
 // special handlers
 
 func (m *AuthOIDCModule) getLoginHandler() http.HandlerFunc {
@@ -215,7 +243,7 @@ func (m *AuthOIDCModule) getCallbackHandler() http.HandlerFunc {
 		form.Add("redirect_uri", callbackURL.String())
 		form.Add("client_id", m.ClientId)
 		form.Add("client_secret", m.ClientSecret)
-		tokenHTTPResponse, err := http.Post(m.TokenURL, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
+		tokenHTTPResponse, err := m.httpClient().Post(m.TokenURL, "application/x-www-form-urlencoded", strings.NewReader(form.Encode()))
 		if err != nil {
 			slog.Error(fmt.Sprintf("could not request token: %v", err))
 			http.Error(w, "could not request token", http.StatusUnauthorized)

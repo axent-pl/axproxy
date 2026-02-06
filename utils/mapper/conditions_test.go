@@ -13,10 +13,9 @@ func TestEvalConditionEq(t *testing.T) {
 		},
 	}
 	cond := mapper.Condition{
-		Eq: &mapper.EqCondition{
-			Left:  "${session.user}",
-			Right: "alice",
-		},
+		Left:  "${session.user}",
+		Op:    "eq",
+		Right: "alice",
 	}
 	ok, err := mapper.EvalCondition(cond, src)
 	if err != nil {
@@ -34,9 +33,8 @@ func TestEvalConditionEmpty(t *testing.T) {
 		},
 	}
 	cond := mapper.Condition{
-		Empty: &mapper.EmptyCondition{
-			Value: "${session.items}",
-		},
+		Left: "${session.items}",
+		Op:   "empty",
 	}
 	ok, err := mapper.EvalCondition(cond, src)
 	if err != nil {
@@ -44,5 +42,45 @@ func TestEvalConditionEmpty(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected condition to be true")
+	}
+}
+
+func TestEvalConditionAndOrNot(t *testing.T) {
+	src := map[string]any{
+		"session": map[string]any{
+			"user":  "alice",
+			"items": []any{},
+		},
+	}
+	cond := mapper.Condition{
+		And: []mapper.Condition{
+			{
+				Left:  "${session.user}",
+				Op:    "eq",
+				Right: "alice",
+			},
+			{
+				Not: &mapper.Condition{
+					Or: []mapper.Condition{
+						{
+							Left: "${session.items}",
+							Op:   "empty",
+						},
+						{
+							Left:  "${session.user}",
+							Op:    "eq",
+							Right: "bob",
+						},
+					},
+				},
+			},
+		},
+	}
+	ok, err := mapper.EvalCondition(cond, src)
+	if err != nil {
+		t.Fatalf("EvalCondition error: %v", err)
+	}
+	if ok {
+		t.Fatalf("expected condition to be false")
 	}
 }
