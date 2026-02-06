@@ -8,7 +8,7 @@ Vulnerability #1: GO-2026-4337
     Fixed in: crypto/tls@go1.25.7
     Example traces found:
       #1: modules/enrichment/ldap.go:70:23: enrichment.dialAndBind calls ldap.Conn.StartTLS, which calls tls.Conn.Handshake
-      #2: proxy/proxy.go:133:31: proxy.AuthProxy.ListenAndServe calls http.ListenAndServeTLS, which eventually calls tls.Conn.HandshakeContext
+      #2: proxy/proxy.go:152:31: proxy.AuthProxy.ListenAndServe calls http.ListenAndServeTLS, which eventually calls tls.Conn.HandshakeContext
       #3: utils/http.go:21:26: utils.RandomURLSafe calls io.ReadFull, which eventually calls tls.Conn.Read
       #4: modules/audit.go:303:30: modules.auditResponseWriter.WriteHeader calls http.response.WriteHeader, which eventually calls tls.Conn.Write
       #5: modules/enrichment/ldap.go:60:24: enrichment.dialAndBind calls ldap.DialURL, which eventually calls tls.DialWithDialer
