@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 
 	"github.com/axent-pl/axproxy/manifest"
 	"github.com/axent-pl/axproxy/module"
@@ -24,6 +23,9 @@ type AuthOIDCModule struct {
 	module.NoopModule
 	Metadata manifest.ObjectMeta `yaml:"metadata"`
 
+	SessionSubjectIDKey string `yaml:"session_subject_id_key"`
+	SessionClaimsKey    string `yaml:"session_claims_key"`
+
 	Scope        string `yaml:"scope"`
 	ClientId     string `yaml:"client_id"`
 	ClientSecret string `yaml:"client_secret"`
@@ -31,9 +33,8 @@ type AuthOIDCModule struct {
 	AuthorizeURL string `yaml:"authorize_url"`
 	JWKSURL      string `yaml:"jwks_url"`
 
-	jwksStartOnce sync.Once
-	jwksScheme    xjwt.JWKSJWTScheme `yaml:"-"`
-	jwtVerifier   xjwt.JWTVerifier   `yaml:"-"`
+	jwksScheme  xjwt.JWKSJWTScheme `yaml:"-"`
+	jwtVerifier xjwt.JWTVerifier   `yaml:"-"`
 }
 
 func (m *AuthOIDCModule) Kind() string {
@@ -44,18 +45,21 @@ func (m *AuthOIDCModule) Name() string {
 	return m.Metadata.Name
 }
 
-func (m *AuthOIDCModule) SpecialRoutes() map[string]http.HandlerFunc {
+func (m *AuthOIDCModule) Start() error {
 	jwksURL, err := url.Parse(m.JWKSURL)
 	if err != nil {
 		slog.Error("invalid JWKS URL", "error", err)
+		return fmt.Errorf("invalid JWKS URL: %v", err)
 	}
-	m.jwksStartOnce.Do(func() {
-		m.jwksScheme = xjwt.JWKSJWTScheme{
-			JWKSURL: *jwksURL,
-		}
-		m.jwksScheme.Start(context.Background())
-		m.jwtVerifier = xjwt.JWTVerifier{}
-	})
+	m.jwksScheme = xjwt.JWKSJWTScheme{
+		JWKSURL: *jwksURL,
+	}
+	m.jwksScheme.Start(context.Background())
+	m.jwtVerifier = xjwt.JWTVerifier{}
+	return nil
+}
+
+func (m *AuthOIDCModule) SpecialRoutes() map[string]http.HandlerFunc {
 
 	return map[string]http.HandlerFunc{
 		"/oidc-callback": m.getCallbackHandler(),
@@ -70,7 +74,8 @@ func (m *AuthOIDCModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.Pr
 			return
 		}
 		sess := st.Session
-		if _, ok := sess.Values["principal"]; !ok {
+		subjectID, err := m.readSubjectID(sess)
+		if err != nil {
 			scheme := utils.RequestScheme(r)
 			currentURL := scheme + "://" + r.Host + r.URL.RequestURI()
 			loginURL := &url.URL{
@@ -82,10 +87,43 @@ func (m *AuthOIDCModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.Pr
 			q.Set("entrypoint_url", currentURL)
 			loginURL.RawQuery = q.Encode()
 			http.Redirect(w, r, loginURL.String(), http.StatusFound)
+			slog.Info("AuthOIDCModule redirecting to oidc-login", "request_id", st.RequestID)
 			return
 		}
+		slog.Info("AuthOIDCModule authentication completed", "request_id", st.RequestID, "subjectID", subjectID)
 		next(w, r, st)
 	})
+}
+
+func (m *AuthOIDCModule) readSubjectID(session *state.Session) (subjectID string, err error) {
+	key := m.SessionSubjectIDKey
+	if key == "" {
+		key = "oidc_subject_id"
+	}
+
+	sub, err := session.GetValue(key)
+	if err != nil {
+		return "", fmt.Errorf("could not read subject_id from session (key:%s): %v", key, err)
+	}
+	subStr, ok := sub.(string)
+	if !ok {
+		return "", fmt.Errorf("could not read subject_id from session (key:%s): invalid type", key)
+	}
+	return subStr, nil
+
+}
+
+func (m *AuthOIDCModule) storePrincipal(session *state.Session, subjectID string, claims map[string]any) {
+	if m.SessionSubjectIDKey != "" {
+		session.SetValue(m.SessionSubjectIDKey, subjectID)
+	} else {
+		session.SetValue("oidc_subject_id", subjectID)
+	}
+	if m.SessionClaimsKey != "" {
+		session.SetValue(m.SessionClaimsKey, claims)
+	} else {
+		session.SetValue("oidc_claims", claims)
+	}
 }
 
 // special handlers
@@ -118,8 +156,8 @@ func (m *AuthOIDCModule) getLoginHandler() http.HandlerFunc {
 
 		st := state.GetState(r.Context())
 		sess := st.Session
-		sess.Values["state"] = oidcState
-		sess.Values["nonce"] = oidcNonce
+		sess.SetValue("state", oidcState)
+		sess.SetValue("nonce", oidcNonce)
 
 		authURL, err := url.Parse(m.AuthorizeURL)
 		if err != nil {
@@ -135,6 +173,7 @@ func (m *AuthOIDCModule) getLoginHandler() http.HandlerFunc {
 		q.Set("nonce", oidcNonce)
 		authURL.RawQuery = q.Encode()
 		http.Redirect(w, r, authURL.String(), http.StatusFound)
+		slog.Info("AuthOIDCModule redirecting to authorization server", "request_id", st.RequestID, "authorize_url", m.AuthorizeURL)
 	})
 }
 
@@ -170,7 +209,7 @@ func (m *AuthOIDCModule) getCallbackHandler() http.HandlerFunc {
 		form := url.Values{}
 		form.Add("grant_type", "authorization_code")
 		form.Add("code", authorization_code)
-		if oidc_state, ok := sess.Values["oidc_state"]; ok {
+		if oidc_state, err := sess.GetValue("oidc_state"); err == nil {
 			form.Add("state", oidc_state.(string))
 		}
 		form.Add("redirect_uri", callbackURL.String())
@@ -213,15 +252,15 @@ func (m *AuthOIDCModule) getCallbackHandler() http.HandlerFunc {
 			return
 		}
 
-		sess.Values["principal"] = principal
+		if oidc_nonce, err := sess.GetValue("oidc_nonce"); err == nil {
+			if nonce, ok := principal.Attributes["nonce"].(string); !ok || nonce != oidc_nonce {
+				slog.Error(fmt.Sprintf("nonce does not match: wat %s, got %s", oidc_nonce, nonce))
+				http.Error(w, "could not request token", http.StatusUnauthorized)
+				return
+			}
+		}
 
-		// if nonce, ok := principal.Attributes["nonce"].(string); !ok || nonce != sess.Nonce {
-		// 	slog.Error(fmt.Sprintf("nonce does not match: wat %s, got %s", sess.Nonce, nonce))
-		// 	http.Error(w, "could not request token", http.StatusUnauthorized)
-		// 	return
-		// }
-
-		// sess.SubjectIDs = map[session.IdentityProvider]string{session.IPD_OIDC: subject}
+		m.storePrincipal(sess, string(principal.Subject), principal.Attributes)
 
 		if entrypoint != "" {
 			http.Redirect(w, r, entrypoint, http.StatusFound)
