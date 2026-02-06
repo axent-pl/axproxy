@@ -149,7 +149,7 @@ func (p *AuthProxy) registerSpecialRoutes() error {
 				if owner, exists := routeOwners[path]; exists {
 					return fmt.Errorf("special route already registered: %s (new %s/%s, existing %s/%s)", path, step.module.Kind(), step.module.Name(), owner.kind, owner.name)
 				}
-				slog.Info("registering special route", "proxy_name", p.Metadata.Name, "path", path, "module_kind", step.module.Kind(), "module_name", step.module.Name())
+				slog.Info("Proxy special route", "proxy_name", p.Metadata.Name, "path", path, "module_kind", step.module.Kind(), "module_name", step.module.Name())
 				specialRoutes[path] = handler
 				routeOwners[path] = routeOwner{
 					kind: step.module.Kind(),

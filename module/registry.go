@@ -25,7 +25,7 @@ func Register(module Module) {
 	defer registryMU.Unlock()
 	kn := KindName{Kind: module.Kind(), Name: module.Name()}
 	registry[kn] = module
-	slog.Info("proxy module registerd", "kind", module.Kind(), "name", module.Name())
+	slog.Info("Module registered", "module_kind", module.Kind(), "module_name", module.Name())
 }
 
 func Get(kind string, name string) (Module, error) {

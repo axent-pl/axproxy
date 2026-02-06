@@ -90,7 +90,7 @@ func (m *AuthOIDCModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.Pr
 			slog.Info("AuthOIDCModule redirecting to oidc-login", "request_id", st.RequestID)
 			return
 		}
-		slog.Info("AuthOIDCModule authentication completed", "request_id", st.RequestID, "subjectID", subjectID)
+		slog.Info("AuthOIDCModule authenticated", "request_id", st.RequestID, "subjectID", subjectID)
 		next(w, r, st)
 	})
 }

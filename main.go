@@ -64,9 +64,9 @@ func main() {
 
 	for _, p := range proxies {
 		go func() {
-			slog.Info("started proxy")
+			slog.Info("Proxy started", "proxy_name", p.Metadata.Name)
 			if err := p.ListenAndServe(); err != nil {
-				slog.Error("failed proxy", "error", err)
+				slog.Error("Proxy failed", "error", err)
 			}
 		}()
 	}

@@ -84,7 +84,17 @@ apiVersion: v1
 kind: Audit
 metadata:
   name: audit
-spec: {}
+spec:
+  request:
+    info:
+      method: true
+      host: true
+      path: true
+  response:
+    info:
+      status: true
+      duration: true
+      target_origin: true
 ---
 apiVersion: v1
 kind: Cookie
