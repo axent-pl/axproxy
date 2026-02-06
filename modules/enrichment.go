@@ -32,6 +32,7 @@ type EnrichmentLookup struct {
 type EnrichmentModule struct {
 	module.NoopModule
 	Metadata manifest.ObjectMeta `yaml:"metadata"`
+	When     *mapper.Condition   `yaml:"when"`
 	Sources  []EnrichmentSource  `yaml:"sources"`
 	Lookups  []EnrichmentLookup  `yaml:"lookups"`
 
@@ -46,10 +47,30 @@ func (m *EnrichmentModule) Name() string {
 	return m.Metadata.Name
 }
 
+func (m *EnrichmentModule) Skip(next module.ProxyHandlerFunc, w http.ResponseWriter, r *http.Request, st *state.State) bool {
+	if m.When != nil {
+		src := mapper.BuildSourceMap(st.Session, r, nil)
+		exec, err := mapper.EvalCondition(*m.When, src)
+		if err != nil {
+			http.Error(w, "could not eval step condition", http.StatusBadGateway)
+			return true
+		}
+		if !exec {
+			slog.Info("EnrichmentModule skipped", "request_id", st.RequestID)
+			next(w, r, st)
+			return true
+		}
+	}
+	return false
+}
+
 func (m *EnrichmentModule) ProxyMiddleware(next module.ProxyHandlerFunc) module.ProxyHandlerFunc {
 	return module.ProxyHandlerFunc(func(w http.ResponseWriter, r *http.Request, st *state.State) {
 		if r == nil || st == nil {
 			next(w, r, st)
+			return
+		}
+		if m.Skip(next, w, r, st) {
 			return
 		}
 		m.doLookup(r.Context(), st)

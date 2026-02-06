@@ -127,7 +127,9 @@ kind: AuthOIDC
 metadata:
   name: axes
 spec:
-  session_principal_key: oidc_principal
+  when:
+    op: empty
+    left: ${session.oidc_subject_id}
   scope: openid email profile
   client_id: ACME
   client_secret: acme-secret
@@ -140,6 +142,9 @@ kind: Enrichment
 metadata:
   name: dummy
 spec:
+  when:
+    op: empty
+    left: ${session.dummy_email}
   sources:
     - name: dummy
       type: dummy
@@ -158,6 +163,9 @@ kind: Enrichment
 metadata:
   name: ldap
 spec:
+  when:
+    op: empty
+    left: ${session.sAMAccountName}
   sources:
     - name: ldap
       type: ldap
