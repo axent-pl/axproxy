@@ -82,7 +82,7 @@ func (m *EnrichmentModule) mapLookupInputs(_ context.Context, lookup EnrichmentL
 	src := mapper.BuildSourceMap(st.Session, nil, nil)
 	dst := map[string]any{}
 	if err := mapper.Apply(dst, src, lookup.Inputs); err != nil {
-		return nil, fmt.Errorf("enrichment mapping inputs (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
+		return nil, err
 	}
 
 	inputs := map[string]string{}
@@ -93,56 +93,77 @@ func (m *EnrichmentModule) mapLookupInputs(_ context.Context, lookup EnrichmentL
 }
 
 func (m *EnrichmentModule) doLookup(ctx context.Context, st *state.State) error {
-	for _, lookup := range m.Lookups {
+	log_base := slog.With(
+		"request_id", st.RequestID,
+		"module_kind", KIND_ENRICHMENT,
+		"module_name", m.Metadata.Name,
+	)
 
-		if _, ok := m.srcInterfaces[lookup.SourceName]; !ok {
-			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", fmt.Errorf("undefined enrichment source %s", lookup.SourceName))
+	for _, lookup := range m.Lookups {
+		log_lookup := log_base.With(
+			"source_name", lookup.SourceName,
+			"lookup_name", lookup.Name,
+		)
+
+		src, ok := m.srcInterfaces[lookup.SourceName]
+		if !ok {
+			err := fmt.Errorf("invalid enrichment source %s", lookup.SourceName)
+			log_lookup.Error("lookup failed", "error", err)
 			return fmt.Errorf("undefined enrichment source %s", lookup.SourceName)
 		}
 
 		lookupInputs, err := m.mapLookupInputs(ctx, lookup, st)
 		if err != nil {
-			slog.Error("EnrichmentModule lookup", "request_id", st.RequestID, "error", err)
-			return err
+			log_lookup.Error("lookup failed", "error", fmt.Errorf("failed to map input: %w", err))
+			return fmt.Errorf("failed to map input: %w", err)
 		}
 
-		lookupOutputs, err := m.srcInterfaces[lookup.SourceName].Lookup(ctx, lookupInputs, lookup.Outputs)
+		lookupOutputs, err := src.Lookup(ctx, lookupInputs, lookup.Outputs)
 		if err != nil {
-			slog.Error("EnrichmentModule lookup call failed", "request_id", st.RequestID, "error", err)
-			return fmt.Errorf("enrichment lookup call failed (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
+			log_lookup.Error("lookup failed", "error", fmt.Errorf("failed to call source: %w", err))
+			return fmt.Errorf("failed to call source: %w", err)
 		}
 
 		dst := map[string]any{}
-		err = mapper.Apply(dst, lookupOutputs, lookup.Mappings)
-		if err != nil {
-			slog.Error("EnrichmentModule lookup output mapping failed", "request_id", st.RequestID, "error", err)
-			return fmt.Errorf("enrichment lookup output mapping failed (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
+		if err := mapper.Apply(dst, lookupOutputs, lookup.Mappings); err != nil {
+			log_lookup.Error("lookup failed", "error", fmt.Errorf("failed to map output: %w", err))
+			return fmt.Errorf("failed to map output: %w", err)
 		}
+
 		if err := mapper.ApplyToTargets(dst, st.Session, nil, nil); err != nil {
-			slog.Error("EnrichmentModule lookup output mapping to targets failed", "request_id", st.RequestID, "error", err)
-			return fmt.Errorf("enrichment lookup output mapping to targets (source:%s, lookup:%s) failed: %w", lookup.SourceName, lookup.Name, err)
+			log_lookup.Error("lookup failed", "error", fmt.Errorf("failed to map output to targets: %w", err))
+			return fmt.Errorf("failed to map output to targets: %w", err)
 		}
 
-		slog.Info("EnrichmentModule lookup completed", "request_id", st.RequestID, "enrichment", m.Metadata.Name, "lookup", lookup.Name)
+		log_lookup.Info("lookup completed")
 	}
-
 	return nil
 }
 
 func (m *EnrichmentModule) Start() error {
+	log_base := slog.With(
+		"module_kind", KIND_ENRICHMENT,
+		"module_name", m.Metadata.Name,
+	)
 	m.srcInterfaces = make(map[string]enrichment.EnrichmentSourcer)
 	for _, source := range m.Sources {
+		log_source := log_base.With(
+			"source_type", source.Type,
+			"source_name", source.Name,
+		)
 		switch source.Type {
 		case "ldap":
 			sourceInterface, err := enrichment.NewLdapEnrichmentSource(&source.LdapSourceConfig)
 			if err != nil {
-				return fmt.Errorf("could not initialize enrichment source (%s:%s): %w", source.Type, source.Name, err)
+				log_source.Error("could not initialize enrichment source", "error", err)
+				return fmt.Errorf("could not initialize enrichment source: %w", err)
 			}
 			m.srcInterfaces[source.Name] = sourceInterface
 		case "dummy":
 			m.srcInterfaces[source.Name] = enrichment.NewDummyEnrichmentSource()
 		default:
-			return fmt.Errorf("could not initialize enrichment source (%s:%s): unknow source", source.Type, source.Name)
+			log_source.Error("invalid enrichment source")
+			return fmt.Errorf("invalid enrichment source (%s:%s)", source.Type, source.Name)
 		}
 	}
 	return nil
